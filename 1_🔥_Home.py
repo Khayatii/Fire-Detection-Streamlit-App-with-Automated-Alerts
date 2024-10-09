@@ -204,13 +204,17 @@ def main():
     st.markdown("---")
 
     # Image selection
-    image = None
-    image_source = st.radio("Select image source:", ("Enter URL", "Upload from Computer"))
-    if image_source == "Upload from Computer":
-        # File uploader for image
-        uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
-        if uploaded_file is not None:
+from PIL import UnidentifiedImageError
+
+if image_source == "Upload from Computer":
+    # File uploader for image
+    uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
+    if uploaded_file is not None:
+        try:
             image = Image.open(uploaded_file)
-        else:
-            st.warning("Please upload an image file.")
+        except UnidentifiedImageError:
+            st.error("Cannot identify image file. Please upload a valid image file (PNG, JPG, JPEG).")
             image = None
+    else:
+        st.warning("Please upload an image file.")
+        image = None
