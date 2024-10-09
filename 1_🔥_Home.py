@@ -7,26 +7,14 @@ import os
 from glob import glob
 from numpy import random
 import io
-from twilio.rest import Client
+import json  # For JSON manipulation
+import urllib.parse  # For URL encoding
 
-# Twilio configuration
-TWILIO_ACCOUNT_SID = 'ACd8988f7f99fcd0726af48da6e181f789'  # Your Account SID
-TWILIO_AUTH_TOKEN = '3878aa7da7b0e634e010116cc48307b5'  # Your Auth Token
-TWILIO_WHATSAPP_NUMBER = 'whatsapp:+14155238886'  # Your Twilio Sandbox WhatsApp number
-MY_WHATSAPP_NUMBER = 'whatsapp:+918928729440'  # Your verified WhatsApp number
+# Your Telegram Bot API token and chat ID
+TELEGRAM_API_TOKEN = '7843011691:AAG99Q1KGx70DKBb6r8EF__9_vBsSlj1e6c'
+TELEGRAM_CHAT_ID = '6723260132'
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-
-# Function to send WhatsApp messages
-def send_whatsapp_message(body, to, media_url):
-    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-    message = client.messages.create(
-        from_=TWILIO_WHATSAPP_NUMBER,
-        body=body,
-        to=to,
-        media_url=media_url  # URL of the media to send
-    )
-    return f"Message sent: {message.sid}"
 
 # Function to load the YOLO model
 @st.cache_resource
@@ -57,10 +45,8 @@ def predict_image(model, image, conf_threshold, iou_threshold):
     prediction_text = 'Predicted '
     for k, v in sorted(class_counts.items(), key=lambda item: item[1], reverse=True):
         prediction_text += f'{v} {k}'
-        
         if v > 1:
             prediction_text += 's'
-        
         prediction_text += ', '
 
     prediction_text = prediction_text[:-2]
@@ -76,7 +62,25 @@ def predict_image(model, image, conf_threshold, iou_threshold):
     res_image = res[0].plot()
     res_image = cv2.cvtColor(res_image, cv2.COLOR_BGR2RGB)
     
-    return res_image, prediction_text, class_counts
+    return res_image, prediction_text
+
+# Function to send the prediction image and message to Telegram
+def send_to_telegram(image, message):
+    # Convert the PIL image to bytes
+    image_buffer = io.BytesIO()
+    image.save(image_buffer, format='PNG')
+    image_buffer.seek(0)
+
+    # Send photo
+    url = f'https://api.telegram.org/bot{TELEGRAM_API_TOKEN}/sendPhoto'
+    data = {
+        'chat_id': TELEGRAM_CHAT_ID,
+        'caption': message
+    }
+    
+    # Sending the photo with the caption
+    response = requests.post(url, data=data, files={'photo': image_buffer.getvalue()})
+    return response.ok
 
 def main():
     # Set Streamlit page configuration
@@ -149,7 +153,7 @@ def main():
     </div>
     """,
     unsafe_allow_html=True
-)
+    )
 
     # Add a separator
     st.markdown("---")
@@ -198,13 +202,4 @@ def main():
     with col2:
         conf_threshold = st.slider("Confidence Threshold", 0.0, 1.0, 0.20, 0.05)
         with st.expander("What is Confidence Threshold?"):
-            st.caption("The Confidence Threshold is a value between 0 and 1.")
-            st.caption("It determines the minimum confidence level required for an object detection.")
-            st.caption("If the confidence of a detected object is below this threshold, it will be ignored.")
-            st.caption("You can adjust this threshold to control the number of detected objects.")
-            st.caption("Lower values make the detection more strict, while higher values allow more detections.")
-    with col1:
-        iou_threshold = st.slider("IOU Threshold", 0.0, 1.0, 0.5, 0.05)
-        with st.expander("What is IOU Threshold?"):
-            st.caption("The IOU (Intersection over Union) Threshold is a value between 0 and 1.")
-            st.caption("It determines the minimum overlap required between")
+            st.caption("The Confidence Threshold is a value
