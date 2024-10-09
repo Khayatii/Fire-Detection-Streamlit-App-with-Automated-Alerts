@@ -5,10 +5,9 @@ import requests  # type: ignore
 from PIL import Image
 import os
 from glob import glob
-import io
 from numpy import random
+import io
 
-# Set the environment variable to avoid duplicates
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Telegram bot token and chat ID
@@ -144,7 +143,7 @@ def main():
             <h3>🌍 <strong>Preventing Wildfires with Computer Vision</strong></h3>
             <p>Our goal is to prevent wildfires by detecting fire and smoke in images with high accuracy and speed.</p>
             <h3>📸 <strong>Try It Out!</strong></h3>
-            <p>Experience the effectiveness of our detection model by uploading an image or using your webcam.</p>
+            <p>Experience the effectiveness of our detection model by uploading an image.</p>
         </div>
         """,
         unsafe_allow_html=True
@@ -193,40 +192,49 @@ def main():
     # Add a section divider
     st.markdown("---")
 
-    # Live feed from webcam
-    if st.checkbox("Enable Live Feed"):
-        cap = cv2.VideoCapture(0)
-        if not cap.isOpened():
-            st.error("Could not open webcam. Please check your connection and permissions.")
-            st.write("Debug Info: Try changing the VideoCapture index (0, 1, 2, ...)")
-            return
+    # Image selection
+    image = None
+    image_source = st.radio("Select image source:", ("Upload from Computer", "Use Webcam"))
 
-        st.markdown("### Live Feed")
-        frame_placeholder = st.empty()
+    if image_source == "Upload from Computer":
+        uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
+        if uploaded_file is not None:
+            image = Image.open(uploaded_file)
+    elif image_source == "Use Webcam":
+        st.markdown("Click on the button below to capture an image from your webcam.")
+        if st.button("Capture"):
+            cap = cv2.VideoCapture(0)
 
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                st.error("Failed to capture image from webcam.")
-                break
-            
-            # Display the live feed
-            frame_placeholder.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB")
+            # Check if the webcam is opened successfully
+            if not cap.isOpened():
+                st.error("Could not open webcam. Please check your connection and permissions.")
+                st.write("Debug Info: Try changing the VideoCapture index (0, 1, 2, ...)")
+            else:
+                ret, frame = cap.read()
+                cap.release()
+                if ret:
+                    image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                else:
+                    st.error("Failed to capture image from webcam.")
 
-            # Perform prediction on the live feed frame
-            prediction, text = predict_image(model, frame, conf_threshold, iou_threshold)
+    if image:
+        # Display the uploaded image
+        with st.spinner("Detecting"):
+            prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
+            st.image(prediction, caption="Prediction", use_column_width=True)
+            st.success(text)
 
-            # Check for fire or smoke in prediction text and send alert
-            if 'fire' in text.lower() or 'smoke' in text.lower():
-                prediction_image = Image.fromarray(prediction)
-                send_to_telegram(prediction_image, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
+        prediction = Image.fromarray(prediction)
 
-            # Add a break condition if needed, e.g., when user clicks a button to stop
-            if st.button("Stop Live Feed"):
-                break
+        # Create a BytesIO object to temporarily hold the image
+        image_bytes = io.BytesIO()
+        prediction.save(image_bytes, format='PNG')
+        image_bytes.seek(0)
 
-        cap.release()
-        cv2.destroyAllWindows()
+        # Add button to send image to Telegram
+        if st.button("Send to Telegram"):
+            send_to_telegram(prediction, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
 
+# Run the main function
 if __name__ == "__main__":
     main()
