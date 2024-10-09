@@ -221,7 +221,7 @@ def main():
                 st.error(f"Error loading image from URL: {e}")
                 image = None
 
-    if image:
+   if image:
         # Display the uploaded image
         with st.spinner("Detecting"):
             prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
