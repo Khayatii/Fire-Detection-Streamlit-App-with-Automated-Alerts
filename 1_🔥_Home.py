@@ -216,4 +216,4 @@ def main():
             if st.button("Send to Telegram"):
                 st.write("Sending image to Telegram...")
                 st.write(f"Caption: {prediction_text}")
-                send_to_telegram(res_image, prediction_text
+                send_to_telegram(res_image, prediction
