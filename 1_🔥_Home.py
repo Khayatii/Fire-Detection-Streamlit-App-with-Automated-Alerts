@@ -206,6 +206,9 @@ def main():
     # Image selection
 from PIL import UnidentifiedImageError
 
+# Ensure image_source is defined before this block
+image_source = st.radio("Select image source:", ("Enter URL", "Upload from Computer"))
+
 if image_source == "Upload from Computer":
     # File uploader for image
     uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
@@ -218,3 +221,4 @@ if image_source == "Upload from Computer":
     else:
         st.warning("Please upload an image file.")
         image = None
+
