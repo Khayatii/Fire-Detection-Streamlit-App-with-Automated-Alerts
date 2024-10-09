@@ -212,3 +212,5 @@ def main():
         if uploaded_file is not None:
             image = Image.open(uploaded_file)
         else:
+            st.warning("Please upload an image file.")
+            image = None
