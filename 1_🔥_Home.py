@@ -1,17 +1,18 @@
-import streamlit as st
+import streamlit as st  # type: ignore
 import cv2
 from ultralytics import YOLO
-import requests
+import requests  # type: ignore
 from PIL import Image
 import os
-from glob import glob
 from numpy import random
 import io
 import time
 
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
 # Telegram bot token and chat ID
-TELEGRAM_BOT_TOKEN = 'your_bot_token'
-CHAT_ID = 'your_chat_id'
+TELEGRAM_BOT_TOKEN = '7843011691:AAG99Q1KGx70DKBb6r8EF__9_vBsSlj1e6c'  # Replace with your bot token
+CHAT_ID = '6723260132'  # Replace with your chat ID
 
 # Function to load the YOLO model
 @st.cache_resource
@@ -37,6 +38,7 @@ def predict_image(model, image, conf_threshold, iou_threshold):
         c = int(c)
         class_counts[class_name[c]] = class_counts.get(class_name[c], 0) + 1
 
+    # Generate prediction text
     prediction_text = 'Predicted '
     for k, v in sorted(class_counts.items(), key=lambda item: item[1], reverse=True):
         prediction_text += f'{v} {k}'
@@ -46,9 +48,11 @@ def predict_image(model, image, conf_threshold, iou_threshold):
 
     prediction_text = prediction_text[:-2] if class_counts else "No objects detected"
 
+    # Calculate inference latency
     latency = round(sum(res[0].speed.values()) / 1000, 2)
     prediction_text += f' in {latency} seconds.'
 
+    # Convert result image to RGB
     res_image = res[0].plot()
     res_image = cv2.cvtColor(res_image, cv2.COLOR_BGR2RGB)
     
@@ -58,40 +62,52 @@ def predict_image(model, image, conf_threshold, iou_threshold):
 def send_to_telegram(image, caption, bot_token, chat_id):
     url = f'https://api.telegram.org/bot{bot_token}/sendPhoto'
     
+    # Convert image to bytes
     image_bytes = io.BytesIO()
     image.save(image_bytes, format='PNG')
     image_bytes.seek(0)
     
+    # Create the payload for the Telegram request
     files = {'photo': ('image.png', image_bytes, 'image/png')}
     data = {'chat_id': chat_id, 'caption': caption}
     
-    response = requests.post(url, files=files, data=data)
-    if response.status_code == 200:
-        st.success("Image sent to Telegram successfully!")
-    else:
-        st.error(f"Failed to send image to Telegram: {response.status_code} - {response.text}")
+    try:
+        response = requests.post(url, files=files, data=data)
+        if response.status_code == 200:
+            st.success("Image sent to Telegram successfully!")
+        else:
+            st.error(f"Failed to send image to Telegram: {response.status_code} - {response.text}")
+    except Exception as e:
+        st.error(f"Error sending image to Telegram: {e}")
 
 # Function to process live camera feed
 def process_live_feed(model, conf_threshold, iou_threshold):
     stframe = st.empty()
-    
-    cap = cv2.VideoCapture(0)  # Open the webcam (0 is usually the default camera)
+
+    # Open the default webcam (ID 0)
+    cap = cv2.VideoCapture(0)  # Use 1 if 0 doesn't work
     if not cap.isOpened():
-        st.error("Unable to access the webcam.")
+        st.error("Unable to access the webcam. Please check your camera settings.")
         return
+
+    # Check camera properties, you can add messages for resolution
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    st.info(f"Webcam resolution: {width}x{height}")
 
     while cap.isOpened():
         ret, frame = cap.read()  # Capture frame-by-frame
         if not ret:
-            st.error("Failed to capture image from camera.")
+            st.error("Failed to capture image from the webcam.")
             break
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         prediction, text = predict_image(model, frame_rgb, conf_threshold, iou_threshold)
         
-        # Display the prediction
+        # Display the prediction on live feed
         stframe.image(prediction, caption="Live Camera Feed Prediction", use_column_width=True)
 
+        # If fire/smoke detected, send to Telegram
         if 'fire' in text.lower() or 'smoke' in text.lower():
             prediction_pil = Image.fromarray(prediction)
             send_to_telegram(prediction_pil, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
@@ -101,56 +117,107 @@ def process_live_feed(model, conf_threshold, iou_threshold):
     cap.release()
 
 def main():
+    # Set Streamlit page configuration
     st.set_page_config(
         page_title="Wildfire Detection",
         page_icon="🔥",
         initial_sidebar_state="collapsed",
     )
     
+    # Sidebar information
     st.sidebar.markdown("Developed by Siddharth Vats and Khayati Sharma")
 
+    # Set custom CSS styles
+    st.markdown(
+        """
+        <style>
+        .container {
+            max-width: 800px;
+        }
+        .title {
+            text-align: center;
+            font-size: 35px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .description {
+            margin-bottom: 30px;
+        }
+        .instructions {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # App title
     st.markdown("<div class='title'>Wildfire Detection</div>", unsafe_allow_html=True)
 
-    model_type = st.sidebar.radio("Select Model Type", ("Fire Detection", "General"))
+    # Logo and description
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col1:
+        st.write("")
+    with col2:
+        st.image("logo.png", use_column_width=True)  # Add your logo file here
+    with col3:
+        st.write("")
 
-    models_dir = "general-models" if model_type == "General" else "fire-models"
-    model_files = [f.replace(".pt", "") for f in os.listdir(models_dir) if f.endswith(".pt")]
-
-    selected_model = st.sidebar.selectbox("Select Model Size", sorted(model_files), index=2)
-    model_path = os.path.join(models_dir, selected_model + ".pt")
-    model = load_model(model_path)
-
-    # Set thresholds
-    conf_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.25, 0.05)
-    iou_threshold = st.sidebar.slider("IOU Threshold", 0.0, 1.0, 0.5, 0.05)
-
-    # Image source selection (only live camera feed and file upload options)
-    image_source = st.radio("Select image source:", ("Upload from Computer", "Live Camera Feed"))
-
+    # Remove URL option and keep only upload from computer and live feed
+    st.markdown("---")
+    image_source = st.radio("Select image source:", ("Upload from Computer", "Use Webcam Live Feed"))
+    
     if image_source == "Upload from Computer":
         uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
         if uploaded_file is not None:
             image = Image.open(uploaded_file)
-            with st.spinner("Detecting..."):
-                prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
-                st.image(prediction, caption="Prediction", use_column_width=True)
-                st.success(text)
-
+            if image:
+                # Display the uploaded image
+                with st.spinner("Detecting"):
+                    prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
+                    st.image(prediction, caption="Prediction", use_column_width=True)
+                    st.success(text)
+                
                 prediction = Image.fromarray(prediction)
+            
+                # Create a BytesIO object to temporarily store the image data
                 image_buffer = io.BytesIO()
+            
+                # Save the image to the BytesIO object in PNG format
                 prediction.save(image_buffer, format='PNG')
-
+            
+                # Create a download button for the image
                 st.download_button(
                     label='Download Prediction',
                     data=image_buffer.getvalue(),
                     file_name='prediction.png',
                     mime='image/png'
                 )
-
-                if 'fire' in text.lower() or 'smoke' in text.lower():
+            
+                # Automatically send the image to Telegram if fire or smoke is detected
+                if 'fire' in text.lower() or 'smoke' in text.lower():  # Check for fire or smoke in prediction text
+                    # Reset the buffer position to the beginning
                     image_buffer.seek(0)
                     send_to_telegram(prediction, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
-    elif image_source == "Live Camera Feed":
+
+    elif image_source == "Use Webcam Live Feed":
+        # Confidence and IOU threshold settings
+        col1, col2 = st.columns(2)
+        with col2:
+            conf_threshold = st.slider("Confidence Threshold", 0.0, 1.0, 0.20, 0.05)
+        with col1:
+            iou_threshold = st.slider("IOU Threshold", 0.0, 1.0, 0.5, 0.05)
+        
+        # Load the selected model
+        model_type = "fire-models"  # Assume we are only using fire detection model
+        selected_model = "fire_model.pt"  # Replace with your model file name
+        model_path = os.path.join(model_type, selected_model)
+        model = load_model(model_path)
+        
+        # Process the live camera feed
         process_live_feed(model, conf_threshold, iou_threshold)
 
 
