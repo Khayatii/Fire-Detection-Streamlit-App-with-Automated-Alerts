@@ -11,8 +11,8 @@ import io
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Telegram bot token and chat ID
-TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'  # Replace with your bot token
-CHAT_ID = 'YOUR_CHAT_ID'  # Replace with your chat ID
+TELEGRAM_BOT_TOKEN = '7843011691:AAG99Q1KGx70DKBb6r8EF__9_vBsSlj1e6c'  # Replace with your bot token
+CHAT_ID = '6723260132'  # Replace with your chat ID
 
 # Function to load the YOLO model
 @st.cache_resource
@@ -195,17 +195,16 @@ def main():
     # Image selection
     image = None
     image_source = st.radio("Select image source:", ("Upload from Computer", "Use Webcam"))
-
+    
     if image_source == "Upload from Computer":
         uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
         if uploaded_file is not None:
             image = Image.open(uploaded_file)
     elif image_source == "Use Webcam":
         st.markdown("Click on the button below to capture an image from your webcam.")
+        video_capture_index = st.number_input("VideoCapture Index (0, 1, 2...)", min_value=0, value=0, step=1)
         if st.button("Capture"):
-            cap = cv2.VideoCapture(0)
-
-            # Check if the webcam is opened successfully
+            cap = cv2.VideoCapture(video_capture_index)
             if not cap.isOpened():
                 st.error("Could not open webcam. Please check your connection and permissions.")
                 st.write("Debug Info: Try changing the VideoCapture index (0, 1, 2, ...)")
@@ -221,10 +220,7 @@ def main():
         # Display the uploaded image
         with st.spinner("Detecting"):
             prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
-            st.image(prediction, caption="Prediction", use_column_width=True)
-            st.success(text)
-
-        prediction = Image.fromarray(prediction)
+            st.image(prediction, caption="Detection Result", use_column_width=True)
 
         # Create a BytesIO object to temporarily hold the image
         image_bytes = io.BytesIO()
