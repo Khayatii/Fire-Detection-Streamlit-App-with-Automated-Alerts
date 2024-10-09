@@ -89,11 +89,7 @@ def main():
     )
     
     # Sidebar information
-    st.sidebar.markdown("Developed by Alim Tleuliyev")
-    st.sidebar.markdown("LinkedIn: [Profile](https://www.linkedin.com/in/alimtleuliyev/)")
-    st.sidebar.markdown("GitHub: [Repo](https://github.com/AlimTleuliyev/wildfire-detection)")
-    st.sidebar.markdown("Email: [alim.tleuliyev@nu.edu.kz](mailto:alim.tleuliyev@nu.edu.kz)")
-    st.sidebar.markdown("Telegram: [@nativealim](https://t.me/nativealim)")
+    st.sidebar.markdown("Developed by Siddharth Vats and Khayati Sharma")
 
     # Set custom CSS styles
     st.markdown(
