@@ -10,6 +10,10 @@ import io
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
+# Telegram bot token and chat ID
+TELEGRAM_BOT_TOKEN = 7843011691:AAG99Q1KGx70DKBb6r8EF__9_vBsSlj1e6c
+CHAT_ID = 6723260132
+
 # Function to load the YOLO model
 @st.cache_resource
 def load_model(model_path):
@@ -59,6 +63,28 @@ def predict_image(model, image, conf_threshold, iou_threshold):
     res_image = cv2.cvtColor(res_image, cv2.COLOR_BGR2RGB)
     
     return res_image, prediction_text
+
+# Function to send image via Telegram
+def send_to_telegram(image, caption, bot_token, chat_id):
+    url = f'https://api.telegram.org/bot{bot_token}/sendPhoto'
+    
+    # Convert image to bytes
+    image_bytes = io.BytesIO()
+    image.save(image_bytes, format='PNG')
+    image_bytes.seek(0)
+    
+    # Create the payload for the Telegram request
+    files = {'photo': ('image.png', image_bytes, 'image/png')}
+    data = {'chat_id': chat_id, 'caption': caption}
+    
+    try:
+        response = requests.post(url, files=files, data=data)
+        if response.status_code == 200:
+            st.success("Image sent to Telegram successfully!")
+        else:
+            st.error(f"Failed to send image to Telegram: {response.status_code}")
+    except Exception as e:
+        st.error(f"Error sending image to Telegram: {e}")
 
 def main():
     # Set Streamlit page configuration
@@ -148,27 +174,6 @@ def main():
     with col2:
         selected_model = st.selectbox("Select Model Size", sorted(model_files), index=2)
 
-    # Model and general info
-    col1, col2 = st.columns(2)
-    with col1:
-        with st.expander("What is General?"):
-            st.caption("The General model is an additional model that was added for demonstration purposes.")
-            st.caption("It is pre-trained on the COCO dataset, which consists of various objects across 80 classes.")
-            st.caption("Please note that this model may not be optimized specifically for fire detection.")
-            st.caption("For accurate fire and smoke detection, it is recommended to choose the Fire Detection model.")
-            st.caption("The General model can be used to detect objects commonly found in everyday scenes.")
-    
-    with col2:
-        with st.expander("Size Information"):
-            st.caption("Models are available in different sizes, indicated by n, s, m, and l.")
-            st.caption("- n: Nano")
-            st.caption("- s: Small")
-            st.caption("- m: Medium")
-            st.caption("- l: Large")
-            st.caption("The larger the model, the more precise the detections, but the slower the inference time.")
-            st.caption("On the other hand, smaller models are faster but may sacrifice some precision.")
-            st.caption("Choose a model based on the trade-off between speed and precision that best suits your needs.")
-
     # Load the selected model
     model_path = os.path.join(models_dir, selected_model + ".pt") #type: ignore
     model = load_model(model_path)
@@ -207,46 +212,3 @@ def main():
         if uploaded_file is not None:
             image = Image.open(uploaded_file)
         else:
-            image = None
-
-    else:
-        # Input box for image URL
-        url = st.text_input("Enter the image URL:")
-        if url:
-            try:
-                response = requests.get(url, stream=True)
-                if response.status_code == 200:
-                    image = Image.open(response.raw)
-                else:
-                    st.error("Error loading image from URL.")
-                    image = None
-            except requests.exceptions.RequestException as e:
-                st.error(f"Error loading image from URL: {e}")
-                image = None
-
-    if image:
-        # Display the uploaded image
-        with st.spinner("Detecting"):
-            prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
-            st.image(prediction, caption="Prediction", use_column_width=True)
-            st.success(text)
-        
-        prediction = Image.fromarray(prediction)
-
-        # Create a BytesIO object to temporarily store the image data
-        image_buffer = io.BytesIO()
-
-        # Save the image to the BytesIO object in PNG format
-        prediction.save(image_buffer, format='PNG')
-
-        # Create a download button for the image
-        st.download_button(
-            label='Download Prediction',
-            data=image_buffer.getvalue(),
-            file_name='prediciton.png',
-            mime='image/png'
-        )
-
-        
-if __name__ == "__main__":
-    main()
