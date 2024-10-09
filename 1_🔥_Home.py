@@ -221,7 +221,7 @@ def main():
                 st.error(f"Error loading image from URL: {e}")
                 image = None
 
-    if image:
+   if image:
     # Display the uploaded image
     with st.spinner("Detecting"):
         prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
@@ -249,6 +249,7 @@ def main():
         # Reset the buffer position to the beginning
         image_buffer.seek(0)
         send_to_telegram(prediction, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
+
 
 
         
