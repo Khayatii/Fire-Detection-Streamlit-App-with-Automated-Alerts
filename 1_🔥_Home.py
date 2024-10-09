@@ -202,4 +202,4 @@ def main():
     with col2:
         conf_threshold = st.slider("Confidence Threshold", 0.0, 1.0, 0.20, 0.05)
         with st.expander("What is Confidence Threshold?"):
-            st.caption("The Confidence Threshold is a value
+            st.caption("The Confidence Threshold is a value")
