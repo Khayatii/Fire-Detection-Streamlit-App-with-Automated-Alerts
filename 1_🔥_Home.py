@@ -7,8 +7,6 @@ import os
 from glob import glob
 from numpy import random
 import io
-
-# Import necessary modules for live webcam feed
 import time
 
 # Telegram bot token and chat ID
@@ -48,7 +46,6 @@ def predict_image(model, image, conf_threshold, iou_threshold):
 
     prediction_text = prediction_text[:-2] if class_counts else "No objects detected"
 
-    # Calculate inference latency
     latency = round(sum(res[0].speed.values()) / 1000, 2)
     prediction_text += f' in {latency} seconds.'
 
@@ -89,19 +86,16 @@ def process_live_feed(model, conf_threshold, iou_threshold):
             st.error("Failed to capture image from camera.")
             break
 
-        # Process the frame for fire/smoke detection
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         prediction, text = predict_image(model, frame_rgb, conf_threshold, iou_threshold)
         
         # Display the prediction
         stframe.image(prediction, caption="Live Camera Feed Prediction", use_column_width=True)
 
-        # Send to Telegram if fire or smoke is detected
         if 'fire' in text.lower() or 'smoke' in text.lower():
             prediction_pil = Image.fromarray(prediction)
             send_to_telegram(prediction_pil, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
 
-        # Break the loop if Streamlit app is stopped
         time.sleep(1)
 
     cap.release()
@@ -116,8 +110,7 @@ def main():
     st.sidebar.markdown("Developed by Siddharth Vats and Khayati Sharma")
 
     st.markdown("<div class='title'>Wildfire Detection</div>", unsafe_allow_html=True)
-    
-    # Sidebar information
+
     model_type = st.sidebar.radio("Select Model Type", ("Fire Detection", "General"))
 
     models_dir = "general-models" if model_type == "General" else "fire-models"
@@ -131,53 +124,34 @@ def main():
     conf_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.25, 0.05)
     iou_threshold = st.sidebar.slider("IOU Threshold", 0.0, 1.0, 0.5, 0.05)
 
-    # Image source selection (including live feed)
-    image_source = st.radio("Select image source:", ("Upload from Computer", "Enter URL", "Live Camera Feed"))
+    # Image source selection (only live camera feed and file upload options)
+    image_source = st.radio("Select image source:", ("Upload from Computer", "Live Camera Feed"))
 
     if image_source == "Upload from Computer":
         uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
         if uploaded_file is not None:
             image = Image.open(uploaded_file)
-        else:
-            image = None
+            with st.spinner("Detecting..."):
+                prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
+                st.image(prediction, caption="Prediction", use_column_width=True)
+                st.success(text)
 
-    elif image_source == "Enter URL":
-        url = st.text_input("Enter the image URL:")
-        if url:
-            try:
-                response = requests.get(url, stream=True)
-                if response.status_code == 200:
-                    image = Image.open(response.raw)
-                else:
-                    st.error("Error loading image from URL.")
-                    image = None
-            except requests.exceptions.RequestException as e:
-                st.error(f"Error loading image from URL: {e}")
-                image = None
+                prediction = Image.fromarray(prediction)
+                image_buffer = io.BytesIO()
+                prediction.save(image_buffer, format='PNG')
 
+                st.download_button(
+                    label='Download Prediction',
+                    data=image_buffer.getvalue(),
+                    file_name='prediction.png',
+                    mime='image/png'
+                )
+
+                if 'fire' in text.lower() or 'smoke' in text.lower():
+                    image_buffer.seek(0)
+                    send_to_telegram(prediction, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
     elif image_source == "Live Camera Feed":
         process_live_feed(model, conf_threshold, iou_threshold)
-
-    if image:
-        with st.spinner("Detecting..."):
-            prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
-            st.image(prediction, caption="Prediction", use_column_width=True)
-            st.success(text)
-
-            prediction = Image.fromarray(prediction)
-            image_buffer = io.BytesIO()
-            prediction.save(image_buffer, format='PNG')
-
-            st.download_button(
-                label='Download Prediction',
-                data=image_buffer.getvalue(),
-                file_name='prediction.png',
-                mime='image/png'
-            )
-
-            if 'fire' in text.lower() or 'smoke' in text.lower():
-                image_buffer.seek(0)
-                send_to_telegram(prediction, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
 
 
 if __name__ == "__main__":
