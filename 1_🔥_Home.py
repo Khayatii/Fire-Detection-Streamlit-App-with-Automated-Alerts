@@ -28,11 +28,11 @@ def predict_image(model, image, conf_threshold, iou_threshold):
         iou=iou_threshold,
         device='cpu',
     )
-
+    
     class_name = model.model.names
     classes = res[0].boxes.cls
     class_counts = {}
-
+    
     # Count occurrences of each class
     for c in classes:
         c = int(c)
@@ -55,22 +55,22 @@ def predict_image(model, image, conf_threshold, iou_threshold):
     # Convert result image to RGB
     res_image = res[0].plot()
     res_image = cv2.cvtColor(res_image, cv2.COLOR_BGR2RGB)
-
+    
     return res_image, prediction_text
 
 # Function to send image via Telegram
 def send_to_telegram(image, caption, bot_token, chat_id):
     url = f'https://api.telegram.org/bot{bot_token}/sendPhoto'
-
+    
     # Convert image to bytes
     image_bytes = io.BytesIO()
     image.save(image_bytes, format='PNG')
     image_bytes.seek(0)
-
+    
     # Create the payload for the Telegram request
     files = {'photo': ('image.png', image_bytes, 'image/png')}
     data = {'chat_id': chat_id, 'caption': caption}
-
+    
     try:
         response = requests.post(url, files=files, data=data)
         if response.status_code == 200:
@@ -87,7 +87,7 @@ def main():
         page_icon="🔥",
         initial_sidebar_state="collapsed",
     )
-
+    
     # Sidebar information
     st.sidebar.markdown("Developed by Siddharth Vats and Khayati Sharma")
 
@@ -136,17 +136,17 @@ def main():
 
     # Description
     st.markdown(
-        """
-        <div style='text-align: center;'>
-            <h2>🔥 <strong>Wildfire Detection App</strong></h2>
-            <p>Welcome to our Wildfire Detection App! Powered by the <a href='https://github.com/ultralytics/ultralytics'>YOLOv8</a> detection model trained on the <a href='https://github.com/gaiasd/DFireDataset'>D-Fire: an image dataset for fire and smoke detection</a>.</p>
-            <h3>🌍 <strong>Preventing Wildfires with Computer Vision</strong></h3>
-            <p>Our goal is to prevent wildfires by detecting fire and smoke in images with high accuracy and speed.</p>
-            <h3>📸 <strong>Try It Out!</strong></h3>
-            <p>Experience the effectiveness of our detection model by uploading an image.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
+    """
+    <div style='text-align: center;'>
+        <h2>🔥 <strong>Wildfire Detection App</strong></h2>
+        <p>Welcome to our Wildfire Detection App! Powered by the <a href='https://github.com/ultralytics/ultralytics'>YOLOv8</a> detection model trained on the <a href='https://github.com/gaiasd/DFireDataset'>D-Fire: an image dataset for fire and smoke detection</a>.</p>
+        <h3>🌍 <strong>Preventing Wildfires with Computer Vision</strong></h3>
+        <p>Our goal is to prevent wildfires by detecting fire and smoke in images with high accuracy and speed.</p>
+        <h3>📸 <strong>Try It Out!</strong></h3>
+        <p>Experience the effectiveness of our detection model by uploading an image or providing a URL.</p>
+    </div>
+    """,
+    unsafe_allow_html=True
     )
 
     # Add a separator
@@ -159,7 +159,7 @@ def main():
 
     models_dir = "general-models" if model_type == "General" else "fire-models"
     model_files = [f.replace(".pt", "") for f in os.listdir(models_dir) if f.endswith(".pt")]
-
+    
     with col2:
         selected_model = st.selectbox("Select Model Size", sorted(model_files), index=2)
 
@@ -194,43 +194,57 @@ def main():
 
     # Image selection
     image = None
-    image_source = st.radio("Select image source:", ("Upload from Computer", "Use Webcam"))
-    
+    image_source = st.radio("Select image source:", ("Enter URL", "Upload from Computer"))
     if image_source == "Upload from Computer":
         uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
         if uploaded_file is not None:
             image = Image.open(uploaded_file)
-    elif image_source == "Use Webcam":
-        st.markdown("Click on the button below to capture an image from your webcam.")
-        video_capture_index = st.number_input("VideoCapture Index (0, 1, 2...)", min_value=0, value=0, step=1)
-        if st.button("Capture"):
-            cap = cv2.VideoCapture(video_capture_index)
-            if not cap.isOpened():
-                st.error("Could not open webcam. Please check your connection and permissions.")
-                st.write("Debug Info: Try changing the VideoCapture index (0, 1, 2, ...)")
-            else:
-                ret, frame = cap.read()
-                cap.release()
-                if ret:
-                    image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                else:
-                    st.error("Failed to capture image from webcam.")
+        else:
+            image = None
 
+    else:
+        # Input box for image URL
+        url = st.text_input("Enter the image URL:")
+        if url:
+            try:
+                response = requests.get(url, stream=True)
+                if response.status_code == 200:
+                    image = Image.open(response.raw)
+                else:
+                    st.error("Error loading image from URL.")
+                    image = None
+            except requests.exceptions.RequestException as e:
+                st.error(f"Error loading image from URL: {e}")
+                image = None
     if image:
         # Display the uploaded image
         with st.spinner("Detecting"):
             prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
-            st.image(prediction, caption="Detection Result", use_column_width=True)
-
-        # Create a BytesIO object to temporarily hold the image
-        image_bytes = io.BytesIO()
-        prediction.save(image_bytes, format='PNG')
-        image_bytes.seek(0)
-
-        # Add button to send image to Telegram
-        if st.button("Send to Telegram"):
+            st.image(prediction, caption="Prediction", use_column_width=True)
+            st.success(text)
+        
+        prediction = Image.fromarray(prediction)
+    
+        # Create a BytesIO object to temporarily store the image data
+        image_buffer = io.BytesIO()
+    
+        # Save the image to the BytesIO object in PNG format
+        prediction.save(image_buffer, format='PNG')
+    
+        # Create a download button for the image
+        st.download_button(
+            label='Download Prediction',
+            data=image_buffer.getvalue(),
+            file_name='prediction.png',
+            mime='image/png'
+        )
+    
+        # Automatically send the image to Telegram if fire or smoke is detected
+        if 'fire' in text.lower() or 'smoke' in text.lower():  # Check for fire or smoke in prediction text
+            # Reset the buffer position to the beginning
+            image_buffer.seek(0)
             send_to_telegram(prediction, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
 
-# Run the main function
+
 if __name__ == "__main__":
     main()
