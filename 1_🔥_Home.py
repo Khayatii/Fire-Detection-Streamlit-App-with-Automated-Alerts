@@ -1,14 +1,30 @@
 import streamlit as st  # type: ignore
 import cv2
 from ultralytics import YOLO
-import requests # type: ignore
+import requests  # type: ignore
 from PIL import Image
 import os
 from glob import glob
 from numpy import random
 import io
+from twilio.rest import Client
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
+# Twilio configuration
+TWILIO_ACCOUNT_SID = 'ACd8988f7f99fcd0726af48da6e181f789'  # Your Account SID
+TWILIO_AUTH_TOKEN = '3878aa7da7b0e634e010116cc48307b5'  # Your Auth Token
+TWILIO_WHATSAPP_NUMBER = 'whatsapp:+14155238886'  # Your Twilio Sandbox WhatsApp number
+
+# Function to send WhatsApp messages
+def send_whatsapp_message(body, to):
+    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    message = client.messages.create(
+        from_=TWILIO_WHATSAPP_NUMBER,
+        body=body,
+        to=to
+    )
+    return f"Message sent: {message.sid}"
 
 # Function to load the YOLO model
 @st.cache_resource
@@ -170,7 +186,7 @@ def main():
             st.caption("Choose a model based on the trade-off between speed and precision that best suits your needs.")
 
     # Load the selected model
-    model_path = os.path.join(models_dir, selected_model + ".pt") #type: ignore
+    model_path = os.path.join(models_dir, selected_model + ".pt")  # type: ignore
     model = load_model(model_path)
 
     # Add a section divider
@@ -193,60 +209,4 @@ def main():
             st.caption("It determines the minimum overlap required between the predicted bounding box")
             st.caption("and the ground truth box for them to be considered a match.")
             st.caption("You can adjust this threshold to control the precision and recall of the detections.")
-            st.caption("Higher values make the matching more strict, while lower values allow more matches.")
-
-    # Add a section divider
-    st.markdown("---")
-
-    # Image selection
-    image = None
-    image_source = st.radio("Select image source:", ("Enter URL", "Upload from Computer"))
-    if image_source == "Upload from Computer":
-        # File uploader for image
-        uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
-        if uploaded_file is not None:
-            image = Image.open(uploaded_file)
-        else:
-            image = None
-
-    else:
-        # Input box for image URL
-        url = st.text_input("Enter the image URL:")
-        if url:
-            try:
-                response = requests.get(url, stream=True)
-                if response.status_code == 200:
-                    image = Image.open(response.raw)
-                else:
-                    st.error("Error loading image from URL.")
-                    image = None
-            except requests.exceptions.RequestException as e:
-                st.error(f"Error loading image from URL: {e}")
-                image = None
-
-    if image:
-        # Display the uploaded image
-        with st.spinner("Detecting"):
-            prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
-            st.image(prediction, caption="Prediction", use_column_width=True)
-            st.success(text)
-        
-        prediction = Image.fromarray(prediction)
-
-        # Create a BytesIO object to temporarily store the image data
-        image_buffer = io.BytesIO()
-
-        # Save the image to the BytesIO object in PNG format
-        prediction.save(image_buffer, format='PNG')
-
-        # Create a download button for the image
-        st.download_button(
-            label='Download Prediction',
-            data=image_buffer.getvalue(),
-            file_name='prediciton.png',
-            mime='image/png'
-        )
-
-        
-if __name__ == "__main__":
-    main()
+            st
