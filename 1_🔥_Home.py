@@ -228,10 +228,13 @@ def main():
             st.success(text)
         
         prediction = Image.fromarray(prediction)
+    
         # Create a BytesIO object to temporarily store the image data
         image_buffer = io.BytesIO()
+    
         # Save the image to the BytesIO object in PNG format
         prediction.save(image_buffer, format='PNG')
+    
         # Create a download button for the image
         st.download_button(
             label='Download Prediction',
@@ -239,11 +242,13 @@ def main():
             file_name='prediction.png',
             mime='image/png'
         )
-        # Button to send the prediction to Telegram
-        if st.button("Send Prediction to Telegram"):
+    
+        # Automatically send the image to Telegram if fire or smoke is detected
+        if 'fire' in text.lower() or 'smoke' in text.lower():  # Check for fire or smoke in prediction text
             # Reset the buffer position to the beginning
             image_buffer.seek(0)
             send_to_telegram(prediction, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
+
 
 if __name__ == "__main__":
     main()
