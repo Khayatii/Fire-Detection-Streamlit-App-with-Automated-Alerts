@@ -7,7 +7,6 @@ import os
 from glob import glob
 from numpy import random
 import io
-import time  # For real-time processing with camera
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -81,39 +80,37 @@ def send_to_telegram(image, caption, bot_token, chat_id):
     except Exception as e:
         st.error(f"Error sending image to Telegram: {e}")
 
+# Function to process live feed from webcam
 def process_live_feed(model, conf_threshold, iou_threshold):
-    # Start the webcam
+    # Initialize webcam
     cap = cv2.VideoCapture(0)
-    stframe = st.empty()  # Placeholder for live video feed
-
-    while cap.isOpened():
+    
+    stframe = st.empty()  # Placeholder for the webcam feed
+    stop_button = st.button("Stop Live Feed")  # Button to stop the live feed
+    
+    while cap.isOpened() and not stop_button:
         ret, frame = cap.read()
         if not ret:
             break
 
-        # Convert frame (BGR to RGB)
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
+        # Resize frame for faster processing
+        frame = cv2.resize(frame, (640, 480))
+
         # Predict using the model
-        with st.spinner("Detecting..."):
-            prediction, text = predict_image(model, frame_rgb, conf_threshold, iou_threshold)
+        result_frame, prediction_text = predict_image(model, frame, conf_threshold, iou_threshold)
         
-        # Display the prediction
-        stframe.image(prediction, channels="RGB", use_column_width=True)
+        # Display the frame and prediction
+        stframe.image(result_frame, channels="RGB", use_column_width=True)
+        st.success(prediction_text)
 
-        # Automatically send the image to Telegram if fire or smoke is detected
-        if 'fire' in text.lower() or 'smoke' in text.lower():  
-            # Convert the prediction to PIL format
-            prediction_pil = Image.fromarray(prediction)
-            
-            # Send to Telegram
-            send_to_telegram(prediction_pil, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
+        # If fire or smoke is detected, send the frame to Telegram
+        if 'fire' in prediction_text.lower() or 'smoke' in prediction_text.lower():
+            image_to_send = Image.fromarray(result_frame)
+            send_to_telegram(image_to_send, prediction_text, TELEGRAM_BOT_TOKEN, CHAT_ID)
 
-        # Stop if the user presses "Stop" button
-        if st.button('Stop'):
-            break
-
+    # Release the webcam after stopping
     cap.release()
+    cv2.destroyAllWindows()
 
 def main():
     # Set Streamlit page configuration
@@ -178,7 +175,7 @@ def main():
         <h3>🌍 <strong>Preventing Wildfires with Computer Vision</strong></h3>
         <p>Our goal is to prevent wildfires by detecting fire and smoke in images with high accuracy and speed.</p>
         <h3>📸 <strong>Try It Out!</strong></h3>
-        <p>Experience the effectiveness of our detection model by uploading an image, providing a URL, or using the live camera feed.</p>
+        <p>Experience the effectiveness of our detection model by uploading an image, providing a URL, or using a live camera feed.</p>
     </div>
     """,
     unsafe_allow_html=True
@@ -228,8 +225,10 @@ def main():
 
     # Image selection or live feed option
     image = None
-    image_source = st.radio("Select image source:", ("Enter URL", "Upload from Computer", "Use Live Camera Feed"))
+        # Image selection or live feed option
+    image_source = st.radio("Select image source:", ("Enter URL", "Upload from Computer", "Live Camera Feed"))
 
+    # Case 1: Upload from Computer
     if image_source == "Upload from Computer":
         uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
         if uploaded_file is not None:
@@ -237,6 +236,7 @@ def main():
         else:
             image = None
 
+    # Case 2: Enter URL
     elif image_source == "Enter URL":
         url = st.text_input("Enter the image URL:")
         if url:
@@ -251,24 +251,27 @@ def main():
                 st.error(f"Error loading image from URL: {e}")
                 image = None
 
-    elif image_source == "Use Live Camera Feed":
-        st.write("**Live camera feed enabled. Press 'Stop' to exit the feed.**")
+    # Case 3: Live Camera Feed
+    elif image_source == "Live Camera Feed":
+        st.info("Using your webcam for live fire detection.")
         process_live_feed(model, conf_threshold, iou_threshold)
 
-    if image:
+    # For static image (upload or URL), display and run prediction
+    if image_source != "Live Camera Feed" and image:
         # Display the uploaded image
-        with st.spinner("Detecting..."):
+        with st.spinner("Detecting"):
             prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
             st.image(prediction, caption="Prediction", use_column_width=True)
             st.success(text)
-
-        # Convert prediction to PIL format for download and Telegram
+        
         prediction = Image.fromarray(prediction)
-
+    
         # Create a BytesIO object to temporarily store the image data
         image_buffer = io.BytesIO()
+    
+        # Save the image to the BytesIO object in PNG format
         prediction.save(image_buffer, format='PNG')
-
+    
         # Create a download button for the image
         st.download_button(
             label='Download Prediction',
@@ -276,13 +279,12 @@ def main():
             file_name='prediction.png',
             mime='image/png'
         )
-
+    
         # Automatically send the image to Telegram if fire or smoke is detected
-        if 'fire' in text.lower() or 'smoke' in text.lower():
+        if 'fire' in text.lower() or 'smoke' in text.lower():  # Check for fire or smoke in prediction text
             # Reset the buffer position to the beginning
             image_buffer.seek(0)
             send_to_telegram(prediction, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
-
 
 if __name__ == "__main__":
     main()
