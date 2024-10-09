@@ -227,7 +227,7 @@ def main():
         prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
         st.image(prediction, caption="Prediction", use_column_width=True)
         st.success(text)
-    
+
     prediction = Image.fromarray(prediction)
 
     # Create a BytesIO object to temporarily store the image data
