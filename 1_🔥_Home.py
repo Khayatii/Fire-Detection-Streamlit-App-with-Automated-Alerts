@@ -11,8 +11,8 @@ import io
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Telegram bot token and chat ID
-TELEGRAM_BOT_TOKEN = 'your_bot_token_here'  # Replace with your bot token
-CHAT_ID = 'your_chat_id_here'  # Replace with your chat ID
+TELEGRAM_BOT_TOKEN = '7843011691:AAG99Q1KGx70DKBb6r8EF__9_vBsSlj1e6c'  # Replace with your bot token
+CHAT_ID = '6723260132'  # Replace with your chat ID
 
 # Function to load the YOLO model
 @st.cache_resource
