@@ -223,10 +223,10 @@ def main():
 
    if image:
     # Display the uploaded image
-    with st.spinner("Detecting"):
-        prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
-        st.image(prediction, caption="Prediction", use_column_width=True)
-        st.success(text)
+        with st.spinner("Detecting"):
+            prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
+            st.image(prediction, caption="Prediction", use_column_width=True)
+            st.success(text)
 
     prediction = Image.fromarray(prediction)
 
