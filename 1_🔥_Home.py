@@ -208,12 +208,3 @@ def main():
     # Analyze the image and send to Telegram
     if image:
         if st.button("Analyze Image"):
-            res_image, prediction_text = predict_image(model, image, conf_threshold, iou_threshold)
-            st.image(res_image, caption="Detection Results", use_column_width=True)
-            st.success(prediction_text)
-
-            # New button to send to Telegram
-            if st.button("Send to Telegram"):
-                st.write("Sending image to Telegram...")
-                st.write(f"Caption: {prediction_text}")
-                send_to_telegram(res_image, prediction)
