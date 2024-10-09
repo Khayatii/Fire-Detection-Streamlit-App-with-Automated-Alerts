@@ -11,8 +11,8 @@ import io
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Telegram bot token and chat ID
-TELEGRAM_BOT_TOKEN = '7843011691:AAG99Q1KGx70DKBb6r8EF__9_vBsSlj1e6c'  # Replace with your bot token
-CHAT_ID = '6723260132'  # Replace with your chat ID
+TELEGRAM_BOT_TOKEN = 'your_bot_token_here'  # Replace with your bot token
+CHAT_ID = 'your_chat_id_here'  # Replace with your chat ID
 
 # Function to load the YOLO model
 @st.cache_resource
@@ -203,8 +203,47 @@ def main():
         uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
         if uploaded_file is not None:
             image = Image.open(uploaded_file)
-            st.image(image, caption="Uploaded Image", use_column_width=True)
+        else:
+            image = None
 
-    # Analyze the image and send to Telegram
+    else:
+        # Input box for image URL
+        url = st.text_input("Enter the image URL:")
+        if url:
+            try:
+                response = requests.get(url, stream=True)
+                if response.status_code == 200:
+                    image = Image.open(response.raw)
+                else:
+                    st.error("Error loading image from URL.")
+                    image = None
+            except requests.exceptions.RequestException as e:
+                st.error(f"Error loading image from URL: {e}")
+                image = None
+
     if image:
-        if st.button("Analyze Image"):
+        # Display the uploaded image
+        with st.spinner("Detecting"):
+            prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
+            st.image(prediction, caption="Prediction", use_column_width=True)
+            st.success(text)
+        
+        prediction = Image.fromarray(prediction)
+
+        # Create a BytesIO object to temporarily store the image data
+        image_buffer = io.BytesIO()
+
+        # Save the image to the BytesIO object in PNG format
+        prediction.save(image_buffer, format='PNG')
+
+        # Create a download button for the image
+        st.download_button(
+            label='Download Prediction',
+            data=image_buffer.getvalue(),
+            file_name='prediciton.png',
+            mime='image/png'
+        )
+
+        
+if __name__ == "__main__":
+    main()
