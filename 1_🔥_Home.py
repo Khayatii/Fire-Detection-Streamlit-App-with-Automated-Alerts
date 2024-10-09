@@ -207,4 +207,4 @@ def main():
         iou_threshold = st.slider("IOU Threshold", 0.0, 1.0, 0.5, 0.05)
         with st.expander("What is IOU Threshold?"):
             st.caption("The IOU (Intersection over Union) Threshold is a value between 0 and 1.")
-            st.caption("It determines the minimum overlap required between
+            st.caption("It determines the minimum overlap required between")
