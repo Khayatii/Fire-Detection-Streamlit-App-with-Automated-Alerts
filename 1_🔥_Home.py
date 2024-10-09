@@ -222,7 +222,7 @@ def main():
                 image = None
 
    if image:
-    # Display the uploaded image
+        # Display the uploaded image
         with st.spinner("Detecting"):
             prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
             st.image(prediction, caption="Prediction", use_column_width=True)
@@ -243,7 +243,7 @@ def main():
             file_name='prediction.png',
             mime='image/png'
         )
-
+    
         # Button to send the prediction to Telegram
         if st.button("Send Prediction to Telegram"):
             # Reset the buffer position to the beginning
