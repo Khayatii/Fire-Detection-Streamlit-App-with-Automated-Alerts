@@ -7,6 +7,7 @@ import os
 from glob import glob
 from numpy import random
 import io
+import time  # For real-time processing with camera
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -80,6 +81,40 @@ def send_to_telegram(image, caption, bot_token, chat_id):
     except Exception as e:
         st.error(f"Error sending image to Telegram: {e}")
 
+def process_live_feed(model, conf_threshold, iou_threshold):
+    # Start the webcam
+    cap = cv2.VideoCapture(0)
+    stframe = st.empty()  # Placeholder for live video feed
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Convert frame (BGR to RGB)
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Predict using the model
+        with st.spinner("Detecting..."):
+            prediction, text = predict_image(model, frame_rgb, conf_threshold, iou_threshold)
+        
+        # Display the prediction
+        stframe.image(prediction, channels="RGB", use_column_width=True)
+
+        # Automatically send the image to Telegram if fire or smoke is detected
+        if 'fire' in text.lower() or 'smoke' in text.lower():  
+            # Convert the prediction to PIL format
+            prediction_pil = Image.fromarray(prediction)
+            
+            # Send to Telegram
+            send_to_telegram(prediction_pil, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
+
+        # Stop if the user presses "Stop" button
+        if st.button('Stop'):
+            break
+
+    cap.release()
+
 def main():
     # Set Streamlit page configuration
     st.set_page_config(
@@ -143,7 +178,7 @@ def main():
         <h3>🌍 <strong>Preventing Wildfires with Computer Vision</strong></h3>
         <p>Our goal is to prevent wildfires by detecting fire and smoke in images with high accuracy and speed.</p>
         <h3>📸 <strong>Try It Out!</strong></h3>
-        <p>Experience the effectiveness of our detection model by uploading an image or providing a URL.</p>
+        <p>Experience the effectiveness of our detection model by uploading an image, providing a URL, or using the live camera feed.</p>
     </div>
     """,
     unsafe_allow_html=True
@@ -184,17 +219,17 @@ def main():
         iou_threshold = st.slider("IOU Threshold", 0.0, 1.0, 0.5, 0.05)
         with st.expander("What is IOU Threshold?"):
             st.caption("The IOU (Intersection over Union) Threshold is a value between 0 and 1.")
-            st.caption("It determines the minimum overlap required between the predicted bounding box")
-            st.caption("and the ground truth box for them to be considered a match.")
+            st.caption("It determines the minimum overlap required between the predicted bounding box and the ground truth box for them to be considered a match.")
             st.caption("You can adjust this threshold to control the precision and recall of the detections.")
             st.caption("Higher values make the matching more strict, while lower values allow more matches.")
 
     # Add a section divider
     st.markdown("---")
 
-    # Image selection
+    # Image selection or live feed option
     image = None
-    image_source = st.radio("Select image source:", ("Enter URL", "Upload from Computer"))
+    image_source = st.radio("Select image source:", ("Enter URL", "Upload from Computer", "Use Live Camera Feed"))
+
     if image_source == "Upload from Computer":
         uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
         if uploaded_file is not None:
@@ -202,8 +237,7 @@ def main():
         else:
             image = None
 
-    else:
-        # Input box for image URL
+    elif image_source == "Enter URL":
         url = st.text_input("Enter the image URL:")
         if url:
             try:
@@ -216,21 +250,25 @@ def main():
             except requests.exceptions.RequestException as e:
                 st.error(f"Error loading image from URL: {e}")
                 image = None
+
+    elif image_source == "Use Live Camera Feed":
+        st.write("**Live camera feed enabled. Press 'Stop' to exit the feed.**")
+        process_live_feed(model, conf_threshold, iou_threshold)
+
     if image:
         # Display the uploaded image
-        with st.spinner("Detecting"):
+        with st.spinner("Detecting..."):
             prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
             st.image(prediction, caption="Prediction", use_column_width=True)
             st.success(text)
-        
+
+        # Convert prediction to PIL format for download and Telegram
         prediction = Image.fromarray(prediction)
-    
+
         # Create a BytesIO object to temporarily store the image data
         image_buffer = io.BytesIO()
-    
-        # Save the image to the BytesIO object in PNG format
         prediction.save(image_buffer, format='PNG')
-    
+
         # Create a download button for the image
         st.download_button(
             label='Download Prediction',
@@ -238,9 +276,9 @@ def main():
             file_name='prediction.png',
             mime='image/png'
         )
-    
+
         # Automatically send the image to Telegram if fire or smoke is detected
-        if 'fire' in text.lower() or 'smoke' in text.lower():  # Check for fire or smoke in prediction text
+        if 'fire' in text.lower() or 'smoke' in text.lower():
             # Reset the buffer position to the beginning
             image_buffer.seek(0)
             send_to_telegram(prediction, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
@@ -248,3 +286,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
