@@ -84,21 +84,17 @@ def send_to_telegram(image, caption, bot_token, chat_id):
 def capture_webcam(model, conf_threshold, iou_threshold):
     st.markdown("<h3>Live Webcam Detection</h3>", unsafe_allow_html=True)
 
-    # Try different camera indices
+    # Try different camera indices if needed
     cam_index = 0
-    max_index = 4  # Try up to index 4 (adjust if needed)
-    cap = None
+    cap = cv2.VideoCapture(cam_index)  # Start with index 0
 
-    for index in range(max_index):
-        cap = cv2.VideoCapture(index)
-        if cap.isOpened():
-            st.success(f"Camera opened at index {index}")
-            break
-        else:
-            st.warning(f"Could not open camera at index {index}. Trying next...")
+    if not cap.isOpened():
+        st.error("Could not open webcam. Trying different index...")
+        cam_index = 1
+        cap = cv2.VideoCapture(cam_index)
 
-    if not cap or not cap.isOpened():
-        st.error(f"Failed to open the camera at any index up to {max_index}. Ensure it's connected.")
+    if not cap.isOpened():
+        st.error(f"Failed to open the camera at index {cam_index}. Ensure it's connected.")
         return
 
     # Capture and process frames from webcam
@@ -123,7 +119,6 @@ def capture_webcam(model, conf_threshold, iou_threshold):
             send_to_telegram(prediction_pil, prediction_text, TELEGRAM_BOT_TOKEN, CHAT_ID)
 
     cap.release()
-
 
 def main():
     # Set Streamlit page configuration
