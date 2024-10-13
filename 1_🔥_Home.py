@@ -7,18 +7,17 @@ import os
 from glob import glob
 from numpy import random
 import io
-import numpy as np
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # Telegram bot token and chat ID
-TELEGRAM_BOT_TOKEN = '7843011691:AAG99Q1KGx70DKBb6r8EF__9_vBsSlj1e6c'  # Replace with your bot token
-CHAT_ID = '6723260132'  # Replace with your chat ID
+TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'  # Replace with your bot token
+CHAT_ID = 'YOUR_CHAT_ID'  # Replace with your chat ID
 
 # Function to load the YOLO model
 @st.cache_resource
 def load_model(model_path):
-    model = YOLO(model_path)
+    model = YOLO(model_path, weights_only=True)  # Explicitly set weights_only=True
     return model
 
 # Function to predict objects in the image
@@ -81,29 +80,44 @@ def send_to_telegram(image, caption, bot_token, chat_id):
     except Exception as e:
         st.error(f"Error sending image to Telegram: {e}")
 
-# Function to capture webcam frames and run detection
-def webcam_detection(model, conf_threshold, iou_threshold):
-    stframe = st.empty()  # Placeholder for live video feed
-    cap = cv2.VideoCapture(0)  # Open webcam
+# Function to capture from webcam
+def capture_webcam(model, conf_threshold, iou_threshold):
+    st.markdown("<h3>Live Webcam Detection</h3>", unsafe_allow_html=True)
 
+    # Try different camera indices if needed
+    cam_index = 0
+    cap = cv2.VideoCapture(cam_index)  # Start with index 0
+
+    if not cap.isOpened():
+        st.error("Could not open webcam. Trying different index...")
+        cam_index = 1
+        cap = cv2.VideoCapture(cam_index)
+
+    if not cap.isOpened():
+        st.error(f"Failed to open the camera at index {cam_index}. Ensure it's connected.")
+        return
+
+    # Capture and process frames from webcam
+    stframe = st.empty()  # Placeholder for webcam feed
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
+            st.error("Failed to capture frame from webcam.")
             break
 
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        res_image, text = predict_image(model, frame_rgb, conf_threshold, iou_threshold)
+        # Convert frame to RGB (for model processing)
+        image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        prediction_image, prediction_text = predict_image(model, image_rgb, conf_threshold, iou_threshold)
 
-        # Display live prediction result
-        stframe.image(res_image, caption="Live Webcam Feed", use_column_width=True)
+        # Display the frame with detections
+        stframe.image(prediction_image, channels="RGB", use_column_width=True)
+        st.write(prediction_text)
 
-        # Send to Telegram if fire or smoke detected
-        if 'fire' in text.lower() or 'smoke' in text.lower():
-            st.success(text)
-            # Convert prediction to an Image object
-            prediction_img = Image.fromarray(res_image)
-            send_to_telegram(prediction_img, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
-    
+        # Send image to Telegram if fire or smoke detected
+        if 'fire' in prediction_text.lower() or 'smoke' in prediction_text.lower():
+            prediction_pil = Image.fromarray(prediction_image)
+            send_to_telegram(prediction_pil, prediction_text, TELEGRAM_BOT_TOKEN, CHAT_ID)
+
     cap.release()
 
 def main():
@@ -132,12 +146,6 @@ def main():
         }
         .description {
             margin-bottom: 30px;
-        }
-        .instructions {
-            margin-bottom: 20px;
-            padding: 10px;
-            background-color: #f5f5f5;
-            border-radius: 5px;
         }
         </style>
         """,
@@ -168,8 +176,6 @@ def main():
         <p>Welcome to our Wildfire Detection App! Powered by the <a href='https://github.com/ultralytics/ultralytics'>YOLOv8</a> detection model trained on the <a href='https://github.com/gaiasd/DFireDataset'>D-Fire: an image dataset for fire and smoke detection</a>.</p>
         <h3>🌍 <strong>Preventing Wildfires with Computer Vision</strong></h3>
         <p>Our goal is to prevent wildfires by detecting fire and smoke in images with high accuracy and speed.</p>
-        <h3>📸 <strong>Try It Out!</strong></h3>
-        <p>Upload an image from your computer or use your webcam to test fire detection in real-time.</p>
     </div>
     """,
     unsafe_allow_html=True
@@ -190,7 +196,7 @@ def main():
         selected_model = st.selectbox("Select Model Size", sorted(model_files), index=2)
 
     # Load the selected model
-    model_path = os.path.join(models_dir, selected_model + ".pt")  # type: ignore
+    model_path = os.path.join(models_dir, selected_model + ".pt")
     model = load_model(model_path)
 
     # Add a section divider
@@ -200,68 +206,15 @@ def main():
     col1, col2 = st.columns(2)
     with col2:
         conf_threshold = st.slider("Confidence Threshold", 0.0, 1.0, 0.20, 0.05)
-        with st.expander("What is Confidence Threshold?"):
-            st.caption("The Confidence Threshold is a value between 0 and 1.")
-            st.caption("It determines the minimum confidence level required for an object detection.")
-            st.caption("If the confidence of a detected object is below this threshold, it will be ignored.")
-            st.caption("You can adjust this threshold to control the number of detected objects.")
-            st.caption("Lower values make the detection more strict, while higher values allow more detections.")
     with col1:
         iou_threshold = st.slider("IOU Threshold", 0.0, 1.0, 0.5, 0.05)
-        with st.expander("What is IOU Threshold?"):
-            st.caption("The IOU (Intersection over Union) Threshold is a value between 0 and 1.")
-            st.caption("It determines the minimum overlap required between the predicted bounding box")
-            st.caption("and the ground truth box for them to be considered a match.")
-            st.caption("You can adjust this threshold to control the precision and recall of the detections.")
-            st.caption("Higher values make the matching more strict, while lower values allow more matches.")
 
     # Add a section divider
     st.markdown("---")
 
-    # Option to choose image upload or webcam
-    input_type = st.radio("Choose input source:", ("Upload an Image", "Use Webcam"), index=0)
-
-    if input_type == "Upload an Image":
-        # Image selection from local upload only
-        image = None
-        uploaded_file = st.file_uploader("Upload an image from your computer", type=["png", "jpg", "jpeg"])
-        if uploaded_file is not None:
-            image = Image.open(uploaded_file)
-
-        if image:
-            # Display the uploaded image
-            with st.spinner("Detecting"):
-                prediction, text = predict_image(model, image, conf_threshold, iou_threshold)
-                st.image(prediction, caption="Prediction", use_column_width=True)
-                st.success(text)
-            
-            prediction = Image.fromarray(prediction)
-        
-            # Create a BytesIO object to temporarily store the image data
-            image_buffer = io.BytesIO()
-        
-            # Save the image to the BytesIO object in PNG format
-            prediction.save(image_buffer, format='PNG')
-        
-            # Create a download button for the image
-            st.download_button(
-                label='Download Prediction',
-                data=image_buffer.getvalue(),
-                file_name='prediction.png',
-                mime='image/png'
-            )
-        
-            # Automatically send the image to Telegram if fire or smoke is detected
-            if 'fire' in text.lower() or 'smoke' in text.lower():  # Check for fire or smoke in prediction text
-                # Reset the buffer position to the beginning
-                image_buffer.seek(0)
-                send_to_telegram(prediction, text, TELEGRAM_BOT_TOKEN, CHAT_ID)
-
-    elif input_type == "Use Webcam":
-        # Webcam detection
-        st.info("Webcam will start capturing fire and smoke. Please wait for predictions.")
-        webcam_detection(model, conf_threshold, iou_threshold)
-
+    # Webcam button to start capturing
+    if st.button("Use Webcam for Fire Detection"):
+        capture_webcam(model, conf_threshold, iou_threshold)
 
 if __name__ == "__main__":
     main()
