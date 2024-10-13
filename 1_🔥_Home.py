@@ -143,7 +143,7 @@ def main():
         <h3>🌍 <strong>Preventing Wildfires with Computer Vision</strong></h3>
         <p>Our goal is to prevent wildfires by detecting fire and smoke in images with high accuracy and speed.</p>
         <h3>📸 <strong>Try It Out!</strong></h3>
-        <p>Experience the effectiveness of our detection model by uploading an image or providing a URL.</p>
+        <p>Experience the effectiveness of our detection model by uploading an image from your computer.</p>
     </div>
     """,
     unsafe_allow_html=True
@@ -192,30 +192,12 @@ def main():
     # Add a section divider
     st.markdown("---")
 
-    # Image selection
+    # Image selection from local upload only
     image = None
-    image_source = st.radio("Select image source:", ("Enter URL", "Upload from Computer"))
-    if image_source == "Upload from Computer":
-        uploaded_file = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
-        if uploaded_file is not None:
-            image = Image.open(uploaded_file)
-        else:
-            image = None
+    uploaded_file = st.file_uploader("Upload an image from your computer", type=["png", "jpg", "jpeg"])
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
 
-    else:
-        # Input box for image URL
-        url = st.text_input("Enter the image URL:")
-        if url:
-            try:
-                response = requests.get(url, stream=True)
-                if response.status_code == 200:
-                    image = Image.open(response.raw)
-                else:
-                    st.error("Error loading image from URL.")
-                    image = None
-            except requests.exceptions.RequestException as e:
-                st.error(f"Error loading image from URL: {e}")
-                image = None
     if image:
         # Display the uploaded image
         with st.spinner("Detecting"):
