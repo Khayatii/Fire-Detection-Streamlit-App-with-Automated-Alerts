@@ -17,7 +17,7 @@ CHAT_ID = 'YOUR_CHAT_ID'  # Replace with your chat ID
 # Function to load the YOLO model
 @st.cache_resource
 def load_model(model_path):
-    model = YOLO(model_path, weights_only=True)  # Explicitly set weights_only=True
+    model = YOLO(model_path)  # Corrected: No need for weights_only=True
     return model
 
 # Function to predict objects in the image
