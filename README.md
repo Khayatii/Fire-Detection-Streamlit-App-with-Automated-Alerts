@@ -73,8 +73,6 @@ The trained YOLOv8 model demonstrated impressive performance on the D-Fire test 
 | Large       | 0.812  |     2.342      |
 | Extra Large | 0.814  |     3.465      |
 
-#### For a detailed exploration of our training process and insights, we invite you to read our comprehensive guide on Medium: [Stay Ahead of the Flames: A Comprehensive Guide to Wildfire Prevention with YOLOv8](https://medium.com/institute-of-smart-systems-and-ai/stay-ahead-of-the-flames-a-comprehensive-guide-to-wildfire-prevention-with-yolov8-3eb8edd1121a)
-
 ---
 
 ## Future Implications
@@ -83,36 +81,7 @@ This research underscores the potential of computer vision in addressing real-wo
 
 ---
 
-## Streamlit App
-
-For a practical demonstration of our research, you can interact with our Wildfire Detection App, powered by the YOLOv8 model. This app allows you to upload images and observe the model's detection capabilities in action. 
-
-#### To experience the app, visit: [Wildfire Detection App](https://wildfire-detection.streamlit.app)
-
-<p align="center">
-  <img src="src/streamlit-merged.png" alt="Streamlit App" width = 600>
-</p>
-<div align="center">
-  Wildfire Detection App
-</div>
-
----
-
 ## Disclaimer
 
 Please note that while our Streamlit app demonstrates the capabilities of our model, it is intended for demonstration purposes and may not be suitable for critical wildfire detection applications.
 
----
-## Acknowledgment
-
-I would like to acknowledge the Institute of Smart Systems and Artificial Intelligence ([ISSAI](https://issai.nu.edu.kz)) at Nazarbayev University for fostering an environment of innovation and research excellence. The support I received from ISSAI has been integral to the successful completion of this endeavor.
-
-I extend my heartfelt appreciation to my supervisor, [Askat Kuzdeuov](https://www.linkedin.com/in/askatkuzdeuov/), at ISSAI, whose guidance and mentorship were indispensable to the success of this research. His expertise and support have been invaluable in shaping the direction and quality of this work.
-
-I would also like to extend my thanks to the creators of the [D-Fire dataset](https://github.com/gaiasd/DFireDataset) for providing a valuable resource that underpins the foundation of this research. Additionally, the [Ultralytics](https://github.com/ultralytics/ultralytics) team's contribution to the YOLOv8 model has been instrumental in enabling accurate and efficient fire detection.
-
----
-
-## License
-
-This project is licensed under the [MIT License](https://github.com/git/git-scm.com/blob/main/MIT-LICENSE.txt).
