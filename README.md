@@ -75,6 +75,13 @@ The trained YOLOv8 model demonstrated impressive performance on the D-Fire test 
 
 ## Deployment
 
+<p align="center">
+  <img src="src/Home screen.png" alt="Home screen" width = 800>
+</p>
+
+<p align="center">
+  <img src="src/Telegram bot chats.png" alt="Telegram bot chats" width = 200>
+</p>
 
 
 ## Future Implications
