@@ -9,7 +9,7 @@ Welcome to the Wildfire Detection Research repository! This repository hosts the
 
 - Trained YOLOv8 model using the D-Fire dataset for accurate fire and smoke detection.
 - Explored different model sizes and their performance metrics.
-- Developed a Streamlit app for practical demonstration of the model's capabilities.
+- Developed a Streamlit app for practical demonstration of the model's capabilities that automatically sends alerts to the fire officer if fire or smoke is detected.
 - Investigated future implications of using computer vision in wildfire prevention strategies.
 
 ---
@@ -72,6 +72,10 @@ The trained YOLOv8 model demonstrated impressive performance on the D-Fire test 
 | Extra Large | 0.814  |     3.465      |
 
 ---
+
+## Deployment
+
+
 
 ## Future Implications
 
